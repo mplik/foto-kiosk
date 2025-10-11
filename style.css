@@ -1,0 +1,44 @@
+body {
+    font-family: sans-serif;
+    padding: 10px;
+}
+
+#drop {
+    border: 2px dashed #ccc;
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+    color: #ccc;
+    margin-bottom: 20px;
+}
+
+#gallery {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.thumb {
+    width: 150px;
+    height: 150px;
+    object-fit: cover;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+.card {
+    position: relative;
+}
+
+.btms {
+    display: flex;
+    gap: 5px;
+    margin-top: 5px;
+}
+
+button {
+    padding: 5px 10px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
