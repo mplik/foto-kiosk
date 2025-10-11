@@ -27,9 +27,22 @@ function renderThumb(item){
 
   const btns = document.createElement('div');
   btns.className = 'btns';
+
   const dl = document.createElement('button');
   dl.textContent = 'Pobierz';
   dl.onclick = () => downloadFile(item);
+
+  const printBtn = document.createElement('button');
+  printBtn.textContent = 'Drukuj';
+  printBtn.onclick = () => {
+    const win = window.open('', '_blank');
+    win.document.write(`<img src="${item.url}" style="max-width:100%;display:block;margin:auto;">`);
+    win.document.close();
+    win.focus();
+    win.print();
+    win.close();
+  };
+
   const rm = document.createElement('button');
   rm.textContent = 'Usuń';
   rm.onclick = () => {
@@ -37,7 +50,9 @@ function renderThumb(item){
     images = images.filter(i => i !== item);
     card.remove();
   };
+
   btns.appendChild(dl);
+  btns.appendChild(printBtn);
   btns.appendChild(rm);
   card.appendChild(btns);
   gallery.appendChild(card);
