@@ -3,68 +3,21 @@ const input = document.getElementById('file');
 const drop = document.getElementById('drop');
 const gallery = document.getElementById('gallery');
 const downloadAllBtn = document.getElementById('downloadAll');
-const qrInput = document.getElementById('qrInput');
 
-// QR generator
-const generateQrBtn = document.getElementById('generateQrBtn');
-const generatedQrContainer = document.getElementById('generatedQrContainer');
+let images = []; // {file, url, name}
 
-function generateUUID() {
-  // Prosty generator UUID v4
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
-}
-
-generateQrBtn.addEventListener('click', () => {
-  const userId = generateUUID();
-  generatedQrContainer.innerHTML = `<p>Twój identyfikator: <b>${userId}</b></p><div id="qrcode"></div>`;
-  // Generowanie kodu QR
-  const qrDiv = document.getElementById('qrcode');
-  new QRCode(qrDiv, {
-    text: userId,
-    width: 200,
-    height: 200
-  });
-});
-
-
-function getSessionId() {
-  return qrInput.value.trim();
-}
-
-function addFilesToSession(files) {
-  const sessionId = getSessionId();
-  if (!sessionId) {
-    alert('Wpisz swój kod QR przed dodaniem zdjęć!');
-    return;
-  }
-  let sessionImages = JSON.parse(localStorage.getItem('zdjecia_' + sessionId)) || [];
-  for (const f of files) {
-    if (!f.type.startsWith('image/')) continue;
+function addFiles(files){
+  for(const f of files){
+    if(!f.type.startsWith('image/')) continue;
     const url = URL.createObjectURL(f);
     const name = f.name || `photo-${Date.now()}.jpg`;
-    sessionImages.push({ name, url });
-  }
-  localStorage.setItem('zdjecia_' + sessionId, JSON.stringify(sessionImages));
-  showGallery();
-}
-
-function showGallery() {
-  gallery.innerHTML = '';
-  const sessionId = getSessionId();
-  if (!sessionId) {
-    gallery.innerHTML = '<p>Wpisz swój kod QR, aby zobaczyć zdjęcia.</p>';
-    return;
-  }
-  let sessionImages = JSON.parse(localStorage.getItem('zdjecia_' + sessionId)) || [];
-  for (const item of sessionImages) {
-    renderSessionThumb(item);
+    const item = {file: f, url, name};
+    images.push(item);
+    renderThumb(item);
   }
 }
 
-function renderSessionThumb(item) {
+function renderThumb(item){
   const card = document.createElement('div');
   card.className = 'card';
   const img = document.createElement('img');
@@ -93,12 +46,9 @@ function renderSessionThumb(item) {
   const rm = document.createElement('button');
   rm.textContent = 'Usuń';
   rm.onclick = () => {
-    // Usuwanie z localStorage
-    const sessionId = getSessionId();
-    let sessionImages = JSON.parse(localStorage.getItem('zdjecia_' + sessionId)) || [];
-    sessionImages = sessionImages.filter(i => i !== item);
-    localStorage.setItem('zdjecia_' + sessionId, JSON.stringify(sessionImages));
-    showGallery();
+    URL.revokeObjectURL(item.url);
+    images = images.filter(i => i !== item);
+    card.remove();
   };
 
   btns.appendChild(dl);
@@ -117,18 +67,16 @@ function downloadFile(item){
   a.remove();
 }
 
-
+// drag & drop
 drop.addEventListener('dragover', e => { e.preventDefault(); drop.style.borderColor = '#666'; });
 drop.addEventListener('dragleave', e => { drop.style.borderColor = '#aaa'; });
 drop.addEventListener('drop', e => {
   e.preventDefault();
   drop.style.borderColor = '#aaa';
-  addFilesToSession(e.dataTransfer.files);
+  addFiles(e.dataTransfer.files);
 });
 
-input.addEventListener('change', e => addFilesToSession(e.target.files));
-
-qrInput.addEventListener('input', showGallery);
+input.addEventListener('change', e => addFiles(e.target.files));
 
 // download all as zip
 downloadAllBtn.addEventListener('click', async () => {
