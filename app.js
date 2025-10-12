@@ -3,6 +3,7 @@ const input = document.getElementById('file');
 const drop = document.getElementById('drop');
 const gallery = document.getElementById('gallery');
 const downloadAllBtn = document.getElementById('downloadAll');
+const qrInput = document.getElementById('qrInput');
 
 // QR generator
 const generateQrBtn = document.getElementById('generateQrBtn');
@@ -28,20 +29,42 @@ generateQrBtn.addEventListener('click', () => {
   });
 });
 
-let images = []; // {file, url, name}
 
-function addFiles(files){
-  for(const f of files){
-    if(!f.type.startsWith('image/')) continue;
+function getSessionId() {
+  return qrInput.value.trim();
+}
+
+function addFilesToSession(files) {
+  const sessionId = getSessionId();
+  if (!sessionId) {
+    alert('Wpisz swój kod QR przed dodaniem zdjęć!');
+    return;
+  }
+  let sessionImages = JSON.parse(localStorage.getItem('zdjecia_' + sessionId)) || [];
+  for (const f of files) {
+    if (!f.type.startsWith('image/')) continue;
     const url = URL.createObjectURL(f);
     const name = f.name || `photo-${Date.now()}.jpg`;
-    const item = {file: f, url, name};
-    images.push(item);
-    renderThumb(item);
+    sessionImages.push({ name, url });
+  }
+  localStorage.setItem('zdjecia_' + sessionId, JSON.stringify(sessionImages));
+  showGallery();
+}
+
+function showGallery() {
+  gallery.innerHTML = '';
+  const sessionId = getSessionId();
+  if (!sessionId) {
+    gallery.innerHTML = '<p>Wpisz swój kod QR, aby zobaczyć zdjęcia.</p>';
+    return;
+  }
+  let sessionImages = JSON.parse(localStorage.getItem('zdjecia_' + sessionId)) || [];
+  for (const item of sessionImages) {
+    renderSessionThumb(item);
   }
 }
 
-function renderThumb(item){
+function renderSessionThumb(item) {
   const card = document.createElement('div');
   card.className = 'card';
   const img = document.createElement('img');
@@ -70,9 +93,12 @@ function renderThumb(item){
   const rm = document.createElement('button');
   rm.textContent = 'Usuń';
   rm.onclick = () => {
-    URL.revokeObjectURL(item.url);
-    images = images.filter(i => i !== item);
-    card.remove();
+    // Usuwanie z localStorage
+    const sessionId = getSessionId();
+    let sessionImages = JSON.parse(localStorage.getItem('zdjecia_' + sessionId)) || [];
+    sessionImages = sessionImages.filter(i => i !== item);
+    localStorage.setItem('zdjecia_' + sessionId, JSON.stringify(sessionImages));
+    showGallery();
   };
 
   btns.appendChild(dl);
@@ -91,11 +117,18 @@ function downloadFile(item){
   a.remove();
 }
 
-// drag & drop
+
 drop.addEventListener('dragover', e => { e.preventDefault(); drop.style.borderColor = '#666'; });
 drop.addEventListener('dragleave', e => { drop.style.borderColor = '#aaa'; });
-// Obsługa dodawania plików przez QR
-// (obsługa drop i input przeniesiona do addFilesToSession powyżej)
+drop.addEventListener('drop', e => {
+  e.preventDefault();
+  drop.style.borderColor = '#aaa';
+  addFilesToSession(e.dataTransfer.files);
+});
+
+input.addEventListener('change', e => addFilesToSession(e.target.files));
+
+qrInput.addEventListener('input', showGallery);
 
 // download all as zip
 downloadAllBtn.addEventListener('click', async () => {
