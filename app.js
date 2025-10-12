@@ -73,7 +73,7 @@ function renderThumb(item, key) {
   rm.textContent = 'Usuń';
   rm.onclick = () => {
     let images = JSON.parse(localStorage.getItem(key)) || [];
-    images = images.filter(i => i !== item);
+    images = images.filter(i => !(i.name === item.name && i.url === item.url));
     localStorage.setItem(key, JSON.stringify(images));
     showGallery();
   };
