@@ -3,62 +3,51 @@ const input = document.getElementById('file');
 const drop = document.getElementById('drop');
 const gallery = document.getElementById('gallery');
 const downloadAllBtn = document.getElementById('downloadAll');
-const newSessionBtn = document.getElementById('newSessionBtn');
+const sessionInput = document.getElementById('sessionId');
 const endSessionBtn = document.getElementById('endSessionBtn');
-const sessionInfo = document.getElementById('sessionInfo');
 
-let sessionId = null;
+function getSessionKey() {
+  const sessionId = sessionInput.value.trim();
+  return sessionId ? `zdjecia_${sessionId}` : null;
+}
 
-newSessionBtn.addEventListener('click', async () => {
-  const res = await fetch('http://localhost:3001/api/session', { method: 'POST' });
-  const data = await res.json();
-  sessionId = data.sessionId;
-  sessionInfo.textContent = `ID sesji: ${sessionId}`;
-  endSessionBtn.disabled = false;
-  showGallery();
-});
-
-endSessionBtn.addEventListener('click', async () => {
-  if (!sessionId) return;
-  await fetch(`http://localhost:3001/api/session/${sessionId}`, { method: 'DELETE' });
-  sessionInfo.textContent = '';
-  sessionId = null;
-  endSessionBtn.disabled = true;
-  gallery.innerHTML = '';
-});
-
-async function addFilesToSession(files) {
-  if (!sessionId) {
-    alert('Najpierw utwórz nową sesję!');
+function addFiles(files) {
+  const key = getSessionKey();
+  if (!key) {
+    alert('Wpisz identyfikator sesji!');
     return;
   }
+  let images = JSON.parse(localStorage.getItem(key)) || [];
   for (const f of files) {
-    const formData = new FormData();
-    formData.append('photo', f);
-    formData.append('sessionId', sessionId);
-    await fetch('http://localhost:3001/api/upload', {
-      method: 'POST',
-      body: formData
-    });
+    if (!f.type.startsWith('image/')) continue;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      images.push({ name: f.name, url: e.target.result });
+      localStorage.setItem(key, JSON.stringify(images));
+      showGallery();
+    };
+    reader.readAsDataURL(f);
   }
-  showGallery();
 }
 
-async function showGallery() {
+function showGallery() {
+  const key = getSessionKey();
   gallery.innerHTML = '';
-  if (!sessionId) return;
-  const res = await fetch(`http://localhost:3001/api/photos/${sessionId}`);
-  const files = await res.json();
-  for (const filename of files) {
-    renderSessionThumb(filename);
+  if (!key) {
+    gallery.innerHTML = '<p>Wpisz identyfikator sesji, aby zobaczyć zdjęcia.</p>';
+    return;
+  }
+  let images = JSON.parse(localStorage.getItem(key)) || [];
+  for (const item of images) {
+    renderThumb(item, key);
   }
 }
 
-function renderSessionThumb(filename) {
+function renderThumb(item, key) {
   const card = document.createElement('div');
   card.className = 'card';
   const img = document.createElement('img');
-  img.src = `http://localhost:3001/${sessionId}/${filename}`;
+  img.src = item.url;
   img.className = 'thumb';
   card.appendChild(img);
 
@@ -67,14 +56,14 @@ function renderSessionThumb(filename) {
 
   const dl = document.createElement('button');
   dl.textContent = 'Pobierz';
-  dl.onclick = () => {
-    window.open(`http://localhost:3001/api/photo/${sessionId}/${filename}`);
-  };
+  dl.onclick = () => downloadFile(item);
 
   const printBtn = document.createElement('button');
   printBtn.textContent = 'Drukuj';
   printBtn.onclick = () => {
-    const win = window.open(`http://localhost:3001/api/photo/${sessionId}/${filename}`, '_blank');
+    const win = window.open('', '_blank');
+    win.document.write(`<img src="${item.url}" style="max-width:100%;display:block;margin:auto;">`);
+    win.document.close();
     win.focus();
     win.print();
     win.close();
@@ -82,8 +71,10 @@ function renderSessionThumb(filename) {
 
   const rm = document.createElement('button');
   rm.textContent = 'Usuń';
-  rm.onclick = async () => {
-    await fetch(`http://localhost:3001/api/photo/${sessionId}/${filename}`, { method: 'DELETE' });
+  rm.onclick = () => {
+    let images = JSON.parse(localStorage.getItem(key)) || [];
+    images = images.filter(i => i !== item);
+    localStorage.setItem(key, JSON.stringify(images));
     showGallery();
   };
 
@@ -94,12 +85,54 @@ function renderSessionThumb(filename) {
   gallery.appendChild(card);
 }
 
+function downloadFile(item) {
+  const a = document.createElement('a');
+  a.href = item.url;
+  a.download = item.name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
 drop.addEventListener('dragover', e => { e.preventDefault(); drop.style.borderColor = '#666'; });
 drop.addEventListener('dragleave', e => { drop.style.borderColor = '#aaa'; });
 drop.addEventListener('drop', e => {
   e.preventDefault();
   drop.style.borderColor = '#aaa';
-  addFilesToSession(e.dataTransfer.files);
+  addFiles(e.dataTransfer.files);
 });
 
-input.addEventListener('change', e => addFilesToSession(e.target.files));
+input.addEventListener('change', e => addFiles(e.target.files));
+
+sessionInput.addEventListener('input', showGallery);
+
+endSessionBtn.addEventListener('click', () => {
+  const key = getSessionKey();
+  if (key) {
+    localStorage.removeItem(key);
+    showGallery();
+  }
+});
+
+// download all as zip
+downloadAllBtn.addEventListener('click', async () => {
+  const key = getSessionKey();
+  let images = key ? JSON.parse(localStorage.getItem(key)) || [] : [];
+  if(images.length === 0) return alert('Brak zdjęć');
+  const zip = new JSZip();
+  const folder = zip.folder('photos');
+  for(const it of images){
+    const response = await fetch(it.url);
+    const blob = await response.blob();
+    folder.file(it.name, blob);
+  }
+  const content = await zip.generateAsync({type:'blob'});
+  const url = URL.createObjectURL(content);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'photos.zip';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+});
