@@ -3,25 +3,62 @@ const input = document.getElementById('file');
 const drop = document.getElementById('drop');
 const gallery = document.getElementById('gallery');
 const downloadAllBtn = document.getElementById('downloadAll');
+const newSessionBtn = document.getElementById('newSessionBtn');
+const endSessionBtn = document.getElementById('endSessionBtn');
+const sessionInfo = document.getElementById('sessionInfo');
 
-let images = []; // {file, url, name}
+let sessionId = null;
 
-function addFiles(files){
-  for(const f of files){
-    if(!f.type.startsWith('image/')) continue;
-    const url = URL.createObjectURL(f);
-    const name = f.name || `photo-${Date.now()}.jpg`;
-    const item = {file: f, url, name};
-    images.push(item);
-    renderThumb(item);
+newSessionBtn.addEventListener('click', async () => {
+  const res = await fetch('/api/session', { method: 'POST' });
+  const data = await res.json();
+  sessionId = data.sessionId;
+  sessionInfo.textContent = `ID sesji: ${sessionId}`;
+  endSessionBtn.disabled = false;
+  showGallery();
+});
+
+endSessionBtn.addEventListener('click', async () => {
+  if (!sessionId) return;
+  await fetch(`/api/session/${sessionId}`, { method: 'DELETE' });
+  sessionInfo.textContent = '';
+  sessionId = null;
+  endSessionBtn.disabled = true;
+  gallery.innerHTML = '';
+});
+
+async function addFilesToSession(files) {
+  if (!sessionId) {
+    alert('Najpierw utwórz nową sesję!');
+    return;
+  }
+  for (const f of files) {
+    const formData = new FormData();
+    formData.append('photo', f);
+    formData.append('sessionId', sessionId);
+    await fetch('/api/upload', {
+      method: 'POST',
+      body: formData
+    });
+  }
+  showGallery();
+}
+
+async function showGallery() {
+  gallery.innerHTML = '';
+  if (!sessionId) return;
+  const res = await fetch(`/api/photos/${sessionId}`);
+  const files = await res.json();
+  for (const filename of files) {
+    renderSessionThumb(filename);
   }
 }
 
-function renderThumb(item){
+function renderSessionThumb(filename) {
   const card = document.createElement('div');
   card.className = 'card';
   const img = document.createElement('img');
-  img.src = item.url;
+  img.src = `/` + sessionId + '/' + filename;
   img.className = 'thumb';
   card.appendChild(img);
 
@@ -30,14 +67,14 @@ function renderThumb(item){
 
   const dl = document.createElement('button');
   dl.textContent = 'Pobierz';
-  dl.onclick = () => downloadFile(item);
+  dl.onclick = () => {
+    window.open(`/api/photo/${sessionId}/${filename}`);
+  };
 
   const printBtn = document.createElement('button');
   printBtn.textContent = 'Drukuj';
   printBtn.onclick = () => {
-    const win = window.open('', '_blank');
-    win.document.write(`<img src="${item.url}" style="max-width:100%;display:block;margin:auto;">`);
-    win.document.close();
+    const win = window.open(`/api/photo/${sessionId}/${filename}`, '_blank');
     win.focus();
     win.print();
     win.close();
@@ -45,10 +82,9 @@ function renderThumb(item){
 
   const rm = document.createElement('button');
   rm.textContent = 'Usuń';
-  rm.onclick = () => {
-    URL.revokeObjectURL(item.url);
-    images = images.filter(i => i !== item);
-    card.remove();
+  rm.onclick = async () => {
+    await fetch(`/api/photo/${sessionId}/${filename}`, { method: 'DELETE' });
+    showGallery();
   };
 
   btns.appendChild(dl);
@@ -58,43 +94,12 @@ function renderThumb(item){
   gallery.appendChild(card);
 }
 
-function downloadFile(item){
-  const a = document.createElement('a');
-  a.href = item.url;
-  a.download = item.name;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-}
-
-// drag & drop
 drop.addEventListener('dragover', e => { e.preventDefault(); drop.style.borderColor = '#666'; });
 drop.addEventListener('dragleave', e => { drop.style.borderColor = '#aaa'; });
 drop.addEventListener('drop', e => {
   e.preventDefault();
   drop.style.borderColor = '#aaa';
-  addFiles(e.dataTransfer.files);
+  addFilesToSession(e.dataTransfer.files);
 });
 
-input.addEventListener('change', e => addFiles(e.target.files));
-
-// download all as zip
-downloadAllBtn.addEventListener('click', async () => {
-  if(images.length === 0) return alert('Brak zdjęć');
-  const zip = new JSZip();
-  const folder = zip.folder('photos');
-  for(const it of images){
-    // read file as arrayBuffer
-    const ab = await it.file.arrayBuffer();
-    folder.file(it.name, ab);
-  }
-  const content = await zip.generateAsync({type:'blob'});
-  const url = URL.createObjectURL(content);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'photos.zip';
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-});
+input.addEventListener('change', e => addFilesToSession(e.target.files));
