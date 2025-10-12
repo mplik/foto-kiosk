@@ -4,6 +4,30 @@ const drop = document.getElementById('drop');
 const gallery = document.getElementById('gallery');
 const downloadAllBtn = document.getElementById('downloadAll');
 
+// QR generator
+const generateQrBtn = document.getElementById('generateQrBtn');
+const generatedQrContainer = document.getElementById('generatedQrContainer');
+
+function generateUUID() {
+  // Prosty generator UUID v4
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+generateQrBtn.addEventListener('click', () => {
+  const userId = generateUUID();
+  generatedQrContainer.innerHTML = `<p>Twój identyfikator: <b>${userId}</b></p><div id="qrcode"></div>`;
+  // Generowanie kodu QR
+  const qrDiv = document.getElementById('qrcode');
+  new QRCode(qrDiv, {
+    text: userId,
+    width: 200,
+    height: 200
+  });
+});
+
 let images = []; // {file, url, name}
 
 function addFiles(files){
@@ -70,13 +94,8 @@ function downloadFile(item){
 // drag & drop
 drop.addEventListener('dragover', e => { e.preventDefault(); drop.style.borderColor = '#666'; });
 drop.addEventListener('dragleave', e => { drop.style.borderColor = '#aaa'; });
-drop.addEventListener('drop', e => {
-  e.preventDefault();
-  drop.style.borderColor = '#aaa';
-  addFiles(e.dataTransfer.files);
-});
-
-input.addEventListener('change', e => addFiles(e.target.files));
+// Obsługa dodawania plików przez QR
+// (obsługa drop i input przeniesiona do addFilesToSession powyżej)
 
 // download all as zip
 downloadAllBtn.addEventListener('click', async () => {
