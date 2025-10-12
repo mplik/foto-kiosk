@@ -1,10 +1,12 @@
 const express = require('express');
+const cors = require('cors');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 
 const app = express();
+app.use(cors());
 const PORT = 3001;
 const SESSIONS_DIR = path.join(__dirname, 'sessions');
 
