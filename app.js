@@ -10,7 +10,7 @@ const sessionInfo = document.getElementById('sessionInfo');
 let sessionId = null;
 
 newSessionBtn.addEventListener('click', async () => {
-  const res = await fetch('/api/session', { method: 'POST' });
+  const res = await fetch('http://localhost:3001/api/session', { method: 'POST' });
   const data = await res.json();
   sessionId = data.sessionId;
   sessionInfo.textContent = `ID sesji: ${sessionId}`;
@@ -20,7 +20,7 @@ newSessionBtn.addEventListener('click', async () => {
 
 endSessionBtn.addEventListener('click', async () => {
   if (!sessionId) return;
-  await fetch(`/api/session/${sessionId}`, { method: 'DELETE' });
+  await fetch(`http://localhost:3001/api/session/${sessionId}`, { method: 'DELETE' });
   sessionInfo.textContent = '';
   sessionId = null;
   endSessionBtn.disabled = true;
@@ -36,7 +36,7 @@ async function addFilesToSession(files) {
     const formData = new FormData();
     formData.append('photo', f);
     formData.append('sessionId', sessionId);
-    await fetch('/api/upload', {
+    await fetch('http://localhost:3001/api/upload', {
       method: 'POST',
       body: formData
     });
@@ -47,7 +47,7 @@ async function addFilesToSession(files) {
 async function showGallery() {
   gallery.innerHTML = '';
   if (!sessionId) return;
-  const res = await fetch(`/api/photos/${sessionId}`);
+  const res = await fetch(`http://localhost:3001/api/photos/${sessionId}`);
   const files = await res.json();
   for (const filename of files) {
     renderSessionThumb(filename);
@@ -58,7 +58,7 @@ function renderSessionThumb(filename) {
   const card = document.createElement('div');
   card.className = 'card';
   const img = document.createElement('img');
-  img.src = `/` + sessionId + '/' + filename;
+  img.src = `http://localhost:3001/${sessionId}/${filename}`;
   img.className = 'thumb';
   card.appendChild(img);
 
@@ -68,13 +68,13 @@ function renderSessionThumb(filename) {
   const dl = document.createElement('button');
   dl.textContent = 'Pobierz';
   dl.onclick = () => {
-    window.open(`/api/photo/${sessionId}/${filename}`);
+    window.open(`http://localhost:3001/api/photo/${sessionId}/${filename}`);
   };
 
   const printBtn = document.createElement('button');
   printBtn.textContent = 'Drukuj';
   printBtn.onclick = () => {
-    const win = window.open(`/api/photo/${sessionId}/${filename}`, '_blank');
+    const win = window.open(`http://localhost:3001/api/photo/${sessionId}/${filename}`, '_blank');
     win.focus();
     win.print();
     win.close();
@@ -83,7 +83,7 @@ function renderSessionThumb(filename) {
   const rm = document.createElement('button');
   rm.textContent = 'Usuń';
   rm.onclick = async () => {
-    await fetch(`/api/photo/${sessionId}/${filename}`, { method: 'DELETE' });
+    await fetch(`http://localhost:3001/api/photo/${sessionId}/${filename}`, { method: 'DELETE' });
     showGallery();
   };
 
